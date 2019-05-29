@@ -22,22 +22,29 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
+	"github.com/gnames/bhlclone"
 	"github.com/spf13/cobra"
 )
 
 // pagesCmd represents the pages command
 var pagesCmd = &cobra.Command{
 	Use:   "pages",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: "Download CSV files with information about pages and names in them",
+	Long: `Text of BHL pages will be downloaded into a tree structure at the
+current directory. Also csv files with metadata about pages and occurances of
+scientific names in them.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("pages called")
+		opts := []bhlclone.Option{
+			bhlclone.TitleIds(titleFlags(cmd)),
+			bhlclone.WithText(textFlag(cmd)),
+		}
+		err := bhlclone.Client(bhlclone.Pages(opts...))
+		if err != nil {
+			fmt.Println(err.Error())
+			os.Exit(1)
+		}
 	},
 }
 
@@ -52,5 +59,40 @@ func init() {
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
-	// pagesCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	pagesCmd.Flags().BoolP("text", "t", false, "Downloads texts of pages")
+	pagesCmd.Flags().IntP("title_start", "s", 0, "Sets first title to download")
+	pagesCmd.Flags().IntP("title_end", "e", 0, "Sets last title to download")
+}
+
+func titleFlags(cmd *cobra.Command) []int {
+	start, err := cmd.Flags().GetInt("title_start")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	end, err := cmd.Flags().GetInt("title_end")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	if start < 1 {
+		return []int{}
+	}
+	if end <= start {
+		return []int{start}
+	}
+	var titleIDs []int
+	for i := start; i <= end; i++ {
+		titleIDs = append(titleIDs, i)
+	}
+	return titleIDs
+}
+
+func textFlag(cmd *cobra.Command) bool {
+	withText, err := cmd.Flags().GetBool("text")
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+	return withText
 }
